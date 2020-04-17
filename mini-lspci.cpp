@@ -137,7 +137,7 @@ void collect_devices(std::ifstream &file,
 			continue;
 
 		if (!vendor) {
-			if (!line.size() || !isdigit(line[0]))
+			if (!isdigit(line[0]))
 				continue;
 
 			for (auto &[_, v] : vendors) {
@@ -174,16 +174,15 @@ void collect_devices(std::ifstream &file,
 
 		std::from_chars(line.data() + 1, line.data() + 5, id, 16);
 
-		if (devs.count(id | (vendor->id << 16))) {
-			auto &dev = devs[id | (vendor->id << 16)];
-			dev.vendor_string = vendor->name;
-			dev.device_string = line.substr(7);
-		}
+		if (devs.count(id | (vendor->id << 16)))
+			devs[id | (vendor->id << 16)].device_string = line.substr(7);
 	}
 
 	for (auto &[_, dev] : devs) {
 		if (vendors.count(dev.subsystem_vendor))
 			dev.subsystem_vendor_string = vendors[dev.subsystem_vendor].name;
+		if (vendors.count(dev.vendor))
+			dev.vendor_string = vendors[dev.vendor].name;
 	}
 }
 
