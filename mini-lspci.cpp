@@ -271,17 +271,17 @@ int main(int argc, char **argv) {
 			case 'n':
 				numeric_level = std::min(numeric_level + 1, 2);
 				break;
+			case 's':
+				sysfs_pci_path = optarg;
+				break;
+			case 'p':
+				pci_ids_path = optarg;
+				break;
 			case 'h':
 				print_help();
 				return 0;
 			case 'V':
 				print_version();
-				return 0;
-			case 's':
-				sysfs_pci_path = optarg;
-				return 0;
-			case 'p':
-				pci_ids_path = optarg;
 				return 0;
 			case '?':
 				return 1;
@@ -307,12 +307,15 @@ int main(int argc, char **argv) {
 	vendors.reserve(needed_vendors.size());
 
 	std::ifstream file{pci_ids_path};
-	collect_vendors(file, needed_vendors, vendors);
 
-	file.clear();
-	file.seekg(0);
+	if (file.good()) {
+		collect_vendors(file, needed_vendors, vendors);
 
-	collect_devices(file, vendors, devices);
+		file.clear();
+		file.seekg(0);
+
+		collect_devices(file, vendors, devices);
+	}
 
 	for (auto &[_, dev] : devices) {
 		print_device(dev, verbose, static_cast<numeric>(numeric_level));
