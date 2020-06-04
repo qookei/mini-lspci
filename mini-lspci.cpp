@@ -5,17 +5,47 @@
 #include <iomanip>
 #include <charconv>
 #include <algorithm>
+#include <string_view>
+#include <unordered_set>
+#include <unordered_map>
 
 #include <cstring>
 #include <cmath>
 
 #include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <dirent.h>
-
-#include <unordered_set>
-#include <unordered_map>
-
 #include <unistd.h>
+#include <fcntl.h>
+
+std::string_view load_file_mmap(const std::string &path) {
+	int fd = open(path.data(), O_RDONLY);
+	if (fd < 0) {
+		perror("open");
+		return {};
+	}
+
+	struct stat st;
+	if (fstat(fd, &st)) {
+		perror("stat");
+		return {};
+	}
+
+	auto ptr = mmap(nullptr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	if (ptr == MAP_FAILED) {
+		perror("mmap");
+		return {};
+	}
+
+	close(fd);
+
+	return {static_cast<char *>(ptr), static_cast<size_t>(st.st_size)};
+}
+
+void close_file_mmap(std::string_view sv) {
+	munmap(const_cast<char *>(sv.data()), sv.size());
+}
 
 std::vector<std::string> fetch_devices(const char *sysfs_pci_path) {
 	DIR *directory = opendir(sysfs_pci_path);
@@ -63,11 +93,11 @@ struct pci_device {
 	uint16_t subsystem_vendor;
 	uint16_t subsystem_device;
 
-	std::string vendor_string;
-	std::string device_string;
+	std::string_view vendor_string;
+	std::string_view device_string;
 
-	std::string subsystem_vendor_string;
-	std::string subsystem_device_string;
+	std::string_view subsystem_vendor_string;
+	std::string_view subsystem_device_string;
 };
 
 pci_device fetch_device(const char *sysfs_pci_path, const std::string &device) {
@@ -81,50 +111,90 @@ pci_device fetch_device(const char *sysfs_pci_path, const std::string &device) {
 	result.subsystem_vendor = fetch_device_attribute(sysfs_pci_path, device, "subsystem_vendor");
 	result.subsystem_device = fetch_device_attribute(sysfs_pci_path, device, "subsystem_device");
 
-	std::ostringstream tmp{};
-	tmp << std::setw(4) << std::setfill('0') << std::hex << result.vendor;
-	result.vendor_string = tmp.str();
-
-	tmp.str("");
-	tmp << std::setw(4) << std::setfill('0') << std::hex << result.device;
-	result.device_string = tmp.str();
-
-	tmp.str("");
-	tmp << std::setw(4) << std::setfill('0') << std::hex << result.subsystem_vendor;
-	result.subsystem_vendor_string = tmp.str();
-
-	tmp.str("");
-	tmp << std::setw(4) << std::setfill('0') << std::hex << result.subsystem_device;
-	result.subsystem_device_string = tmp.str();
-
 	return result;
 }
 
 struct vendor_info {
 	uint32_t id;
-	std::string name;
+	std::string_view name;
 	size_t line;
 };
 
-void collect_vendors(std::ifstream &file,
+struct line_iterator {
+	line_iterator(std::string_view sv)
+	: sv_{sv} {}
+
+	struct iter {
+		iter(line_iterator *o, size_t i, size_t n)
+		: o_{o}, i_{i}, newl_{o_->sv_.find('\n')}, n_{n} { }
+
+		iter &operator++() {
+			n_++;
+			i_ = newl_ != std::string_view::npos ? newl_ + 1 : newl_;
+			newl_ = newl_ != std::string_view::npos ? o_->sv_.find('\n', i_) : newl_;
+
+			return *this;
+		}
+
+		auto operator*() {
+			struct {
+				size_t line_no;
+				std::string_view line;
+			} ret{n_, o_->sv_.substr(i_, newl_ - i_)};
+
+			return ret;
+		}
+
+		bool operator==(const iter &other) const {
+			return o_ == other.o_
+				&& i_ == other.i_
+				&& n_ == other.n_;
+		}
+
+		bool operator!=(const iter &other) const {
+			return !(*this == other);
+		}
+
+	private:
+		line_iterator *o_;
+		size_t i_;
+		size_t newl_;
+		size_t n_;
+	};
+
+	iter begin() {
+		return iter{this, 0, 0};
+	}
+
+	iter end() {
+		size_t lines = 1;
+		for (auto c : sv_) if (c == '\n') lines++;
+
+		return iter{this, std::string_view::npos, lines};
+	}
+
+private:
+	std::string_view sv_;
+};
+
+void collect_vendors(std::string_view sv,
 		const std::unordered_set<uint16_t> &needed,
 		std::unordered_map<uint16_t, vendor_info> &list) {
-	std::string line;
 
-	for(size_t i = 0; std::getline(file, line); i++) {
-		if (!line.size() || !isdigit(line[0]))
+	for (auto [n, line] : line_iterator{sv}) {
+		if (!line.size() || !isxdigit(line[0]))
 			continue;
 
 		uint16_t id = 0xFFFF;
 		std::from_chars(line.data(), line.data() + 4, id, 16);
 
 		if (needed.count(id)) {
-			list.emplace(id, vendor_info{id, line.substr(6), i});
+			list.emplace(id, vendor_info{id, line.substr(6), n});
 		}
 	}
 }
 
-void collect_devices(std::ifstream &file,
+void collect_devices(std::string_view sv,
 		std::unordered_map<uint16_t, vendor_info> &vendors,
 		std::unordered_map<uint32_t, pci_device> &devs) {
 	std::string line;
@@ -132,12 +202,12 @@ void collect_devices(std::ifstream &file,
 	vendor_info *vendor = nullptr;
 	uint32_t id = 0xFFFF;
 
-	for(size_t i = 0; std::getline(file, line); i++) {
+	for (auto [i, line] : line_iterator{sv}) {
 		if (!line.size() || line[0] == '#')
 			continue;
 
 		if (!vendor) {
-			if (!isdigit(line[0]))
+			if (!isxdigit(line[0]))
 				continue;
 
 			for (auto &[_, v] : vendors) {
@@ -195,17 +265,21 @@ enum class numeric : int {
 void print_device(pci_device &dev, bool verbose, numeric mode) {
 	switch (mode) {
 		case numeric::no:
-			printf("%02x:%02x.%1x: %s %s\n",
+			printf("%02x:%02x.%1x: %.*s %.*s\n",
 				dev.bus, dev.slot, dev.function,
-				dev.vendor_string.c_str(),
-				dev.device_string.c_str());
+				static_cast<int>(dev.vendor_string.size()),
+				dev.vendor_string.data(),
+				static_cast<int>(dev.device_string.size()),
+				dev.device_string.data());
 			break;
 
 		case numeric::mixed:
-			printf("%02x:%02x.%1x: %s %s [%04x:%04x]\n",
+			printf("%02x:%02x.%1x: %.*s %.*s [%04x:%04x]\n",
 				dev.bus, dev.slot, dev.function,
-				dev.vendor_string.c_str(),
-				dev.device_string.c_str(),
+				static_cast<int>(dev.vendor_string.size()),
+				dev.vendor_string.data(),
+				static_cast<int>(dev.device_string.size()),
+				dev.device_string.data(),
 				dev.vendor, dev.device);
 			break;
 		case numeric::yes:
@@ -218,15 +292,19 @@ void print_device(pci_device &dev, bool verbose, numeric mode) {
 	if (verbose) {
 		switch (mode) {
 			case numeric::no:
-				printf("\tSubsystem: %s Device %s\n\n",
-					dev.subsystem_vendor_string.c_str(),
-					dev.subsystem_device_string.c_str());
+				printf("\tSubsystem: %.*s Device %.*s\n\n",
+					static_cast<int>(dev.subsystem_vendor_string.size()),
+					dev.subsystem_vendor_string.data(),
+					static_cast<int>(dev.subsystem_device_string.size()),
+					dev.subsystem_device_string.data());
 				break;
 
 			case numeric::mixed:
-				printf("\tSubsystem: %s Device %s [%04x:%04x]\n\n",
-					dev.subsystem_vendor_string.c_str(),
-					dev.subsystem_device_string.c_str(),
+				printf("\tSubsystem: %.*s Device %.*s [%04x:%04x]\n\n",
+					static_cast<int>(dev.subsystem_vendor_string.size()),
+					dev.subsystem_vendor_string.data(),
+					static_cast<int>(dev.subsystem_device_string.size()),
+					dev.subsystem_device_string.data(),
 					dev.subsystem_vendor, dev.subsystem_device);
 				break;
 			case numeric::yes:
@@ -238,7 +316,7 @@ void print_device(pci_device &dev, bool verbose, numeric mode) {
 }
 
 void print_version() {
-	printf("mini-lspci v1.0\n");
+	printf("mini-lspci v1.1\n");
 }
 
 void print_help() {
@@ -305,19 +383,15 @@ int main(int argc, char **argv) {
 	std::unordered_map<uint16_t, vendor_info> vendors;
 	vendors.reserve(needed_vendors.size());
 
-	std::ifstream file{pci_ids_path};
+	auto sv = load_file_mmap(pci_ids_path);
 
-	if (file.good()) {
-		collect_vendors(file, needed_vendors, vendors);
-
-		file.clear();
-		file.seekg(0);
-
-		collect_devices(file, vendors, devices);
-	}
+	collect_vendors(sv, needed_vendors, vendors);
+	collect_devices(sv, vendors, devices);
 
 	for (auto &[_, dev] : devices) {
 		print_device(dev, verbose, static_cast<numeric>(numeric_level));
 	}
+
+	close_file_mmap(sv);
 }
 
