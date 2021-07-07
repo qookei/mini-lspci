@@ -19,33 +19,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-std::string_view load_file_mmap(const std::string &path) {
-	int fd = open(path.data(), O_RDONLY);
-	if (fd < 0) {
-		perror("open");
-		return {};
-	}
-
-	struct stat st;
-	if (fstat(fd, &st)) {
-		perror("stat");
-		return {};
-	}
-
-	auto ptr = mmap(nullptr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	if (ptr == MAP_FAILED) {
-		perror("mmap");
-		return {};
-	}
-
-	close(fd);
-
-	return {static_cast<char *>(ptr), static_cast<size_t>(st.st_size)};
-}
-
-void close_file_mmap(std::string_view sv) {
-	munmap(const_cast<char *>(sv.data()), sv.size());
-}
+#include <util/mapped_file.hpp>
 
 std::vector<std::string> fetch_devices(const char *sysfs_pci_path) {
 	DIR *directory = opendir(sysfs_pci_path);
@@ -383,7 +357,8 @@ int main(int argc, char **argv) {
 	std::unordered_map<uint16_t, vendor_info> vendors;
 	vendors.reserve(needed_vendors.size());
 
-	auto sv = load_file_mmap(pci_ids_path);
+	mapped_file file{pci_ids_path};
+	auto sv = file.as_string_view();
 
 	collect_vendors(sv, needed_vendors, vendors);
 	collect_devices(sv, vendors, devices);
@@ -391,7 +366,5 @@ int main(int argc, char **argv) {
 	for (auto &[_, dev] : devices) {
 		print_device(dev, verbose, static_cast<numeric>(numeric_level));
 	}
-
-	close_file_mmap(sv);
 }
 
