@@ -8,46 +8,25 @@
 #include <string_view>
 #include <unordered_set>
 #include <unordered_map>
+#include <filesystem>
 
 #include <cstring>
 #include <cmath>
 
 #include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <dirent.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include <util/mapped_file.hpp>
 
-std::vector<std::string> fetch_devices(const char *sysfs_pci_path) {
-	DIR *directory = opendir(sysfs_pci_path);
-	dirent *entry;
-	std::vector<std::string> devices{};
+namespace fs = std::filesystem;
 
-	if (directory) {
-		while ((entry = readdir(directory)))
-			if (entry->d_name[0] != '.')
-				devices.push_back(entry->d_name);
-
-		closedir(directory);
-	} else {
-		fprintf(stderr, "failed to open sysfs devices directory\n");
-	}
-
-	return devices;
-}
-
-uint16_t fetch_device_attribute(const char *sysfs_pci_path,
-		const std::string &device,
-		const std::string &attribute) {
+uint16_t fetch_device_attribute(const fs::path &attr_path) {
 	uint16_t value = 0;
-	std::ifstream file{sysfs_pci_path + device + "/" + attribute};
+	std::ifstream file{attr_path};
 
 	if (!file.good()) {
 		fprintf(stderr, "failed to fetch attribute %s for device %s\n",
-				attribute.c_str(), device.c_str());
+				attr_path.filename().c_str(), attr_path.parent_path().filename().c_str());
 		return 0xFFFF;
 	}
 
@@ -74,16 +53,16 @@ struct pci_device {
 	std::string_view subsystem_device_string;
 };
 
-pci_device fetch_device(const char *sysfs_pci_path, const std::string &device) {
+pci_device fetch_device(const fs::path &device_path) {
 	pci_device result{};
 
-	sscanf(device.c_str(), "%4x:%2x:%2x.%1x", 
+	sscanf(device_path.filename().c_str(), "%4x:%2x:%2x.%1x",
 			&result.segment, &result.bus, &result.slot, &result.function);
 
-	result.vendor = fetch_device_attribute(sysfs_pci_path, device, "vendor");
-	result.device = fetch_device_attribute(sysfs_pci_path, device, "device");
-	result.subsystem_vendor = fetch_device_attribute(sysfs_pci_path, device, "subsystem_vendor");
-	result.subsystem_device = fetch_device_attribute(sysfs_pci_path, device, "subsystem_device");
+	result.vendor = fetch_device_attribute(device_path / "vendor");
+	result.device = fetch_device_attribute(device_path / "device");
+	result.subsystem_vendor = fetch_device_attribute(device_path / "subsystem_vendor");
+	result.subsystem_device = fetch_device_attribute(device_path / "subsystem_device");
 
 	return result;
 }
@@ -340,11 +319,18 @@ int main(int argc, char **argv) {
 	}
 
 	std::unordered_map<uint32_t, pci_device> devices;
-	for (auto &dev : fetch_devices(sysfs_pci_path)) {
-		auto d = fetch_device(sysfs_pci_path, dev);
+
+	std::error_code ec;
+
+	for (auto &ent : fs::directory_iterator{sysfs_pci_path, ec}) {
+		auto d = fetch_device(ent.path());
 		devices.emplace(static_cast<uint32_t>(d.device)
-				| static_cast<uint32_t>(d.vendor << 16),
-				d);
+				| static_cast<uint32_t>(d.vendor << 16), d);
+	}
+
+	if (ec) {
+		std::cerr << "Failed to enumerate sysfs directory: " << ec.message() << std::endl;
+		return 1;
 	}
 
 	std::unordered_set<uint16_t> needed_vendors;

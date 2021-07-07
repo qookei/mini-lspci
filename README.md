@@ -23,7 +23,7 @@ Usage:
 ## Compilation
 
 You will need:
- - A C++17 compliant compiler
+ - A C++20 compliant compiler
  - Meson and Ninja
 
 To build and install mini-lspci, do the following:
