@@ -1,66 +1,23 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <fstream>
 #include <iomanip>
 #include <charconv>
 #include <algorithm>
 #include <string_view>
 #include <unordered_set>
 #include <unordered_map>
-#include <filesystem>
 
 #include <cstring>
 #include <cmath>
 
-#include <sys/types.h>
-#include <unistd.h>
+#include <memory>
 
 #include <util/mapped_file.hpp>
 #include <util/line_range.hpp>
 
-namespace fs = std::filesystem;
-
-uint16_t fetch_device_attribute(const fs::path &attr_path) {
-	uint16_t value = 0;
-	std::ifstream file{attr_path};
-
-	if (!file.good()) {
-		fprintf(stderr, "failed to fetch attribute %s for device %s\n",
-				attr_path.filename().c_str(), attr_path.parent_path().filename().c_str());
-		return 0xFFFF;
-	}
-
-	file >> std::hex >> value;
-
-	return value;
-}
-
-struct pci_device {
-	unsigned int segment;
-	unsigned int bus;
-	unsigned int slot;
-	unsigned int function;
-
-	uint16_t vendor;
-	uint16_t device;
-	uint16_t subsystem_vendor;
-	uint16_t subsystem_device;
-};
-
-pci_device fetch_device(const fs::path &device_path) {
-	pci_device result{};
-
-	sscanf(device_path.filename().c_str(), "%4x:%2x:%2x.%1x",
-			&result.segment, &result.bus, &result.slot, &result.function);
-
-	result.vendor = fetch_device_attribute(device_path / "vendor");
-	result.device = fetch_device_attribute(device_path / "device");
-	result.subsystem_vendor = fetch_device_attribute(device_path / "subsystem_vendor");
-	result.subsystem_device = fetch_device_attribute(device_path / "subsystem_device");
-
-	return result;
-}
+#include <provider/provider.hpp>
+#include <provider/sysfs.hpp>
 
 struct vendor_info {
 	uint32_t id;
@@ -299,31 +256,16 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	std::vector<pci_device> devices;
+	std::unique_ptr<provider> prov = std::make_unique<sysfs_provider>();
 
 	std::error_code ec;
 
-	for (auto &ent : fs::directory_iterator{sysfs_pci_path, ec}) {
-		devices.push_back(fetch_device(ent.path()));
-	}
+	auto devices = prov->fetch_devices_sorted(ec);
 
 	if (ec) {
 		std::cerr << "Failed to enumerate sysfs directory: " << ec.message() << std::endl;
 		return 1;
 	}
-
-	std::sort(devices.begin(), devices.end(), [] (const auto &a, const auto &b) {
-		if (a.segment != b.segment)
-			return a.segment < b.segment;
-		if (a.bus != b.bus)
-			return a.bus < b.bus;
-		if (a.slot != b.slot)
-			return a.slot < b.slot;
-		if (a.function != b.function)
-			return a.function < b.function;
-
-		return false;
-	});
 
 	std::unordered_set<uint16_t> needed_vendors;
 	for (auto &dev : devices) {
