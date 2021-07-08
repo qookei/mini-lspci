@@ -151,6 +151,10 @@ void print_device(pci_device &dev,
 		}
 	}
 
+	if (dev.has_rev && dev.rev) {
+		printf(" (rev %02x)", dev.rev);
+	}
+
 	printf("\n");
 
 	if (verbose) {
