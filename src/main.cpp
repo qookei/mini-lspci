@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <util/mapped_file.hpp>
+#include <util/line_range.hpp>
 
 namespace fs = std::filesystem;
 
@@ -73,68 +74,16 @@ struct vendor_info {
 	size_t line;
 };
 
-struct line_iterator {
-	line_iterator(std::string_view sv)
-	: sv_{sv} {}
-
-	struct iter {
-		iter(line_iterator *o, size_t i, size_t n)
-		: o_{o}, i_{i}, newl_{o_->sv_.find('\n')}, n_{n} { }
-
-		iter &operator++() {
-			n_++;
-			i_ = newl_ != std::string_view::npos ? newl_ + 1 : newl_;
-			newl_ = newl_ != std::string_view::npos ? o_->sv_.find('\n', i_) : newl_;
-
-			return *this;
-		}
-
-		auto operator*() {
-			struct {
-				size_t line_no;
-				std::string_view line;
-			} ret{n_, o_->sv_.substr(i_, newl_ - i_)};
-
-			return ret;
-		}
-
-		bool operator==(const iter &other) const {
-			return o_ == other.o_
-				&& i_ == other.i_
-				&& n_ == other.n_;
-		}
-
-		bool operator!=(const iter &other) const {
-			return !(*this == other);
-		}
-
-	private:
-		line_iterator *o_;
-		size_t i_;
-		size_t newl_;
-		size_t n_;
-	};
-
-	iter begin() {
-		return iter{this, 0, 0};
-	}
-
-	iter end() {
-		size_t lines = 1;
-		for (auto c : sv_) if (c == '\n') lines++;
-
-		return iter{this, std::string_view::npos, lines};
-	}
-
-private:
-	std::string_view sv_;
+struct device_info {
+	uint16_t id;
+	std::string_view name;
 };
 
-void collect_vendors(std::string_view sv,
+void collect_vendors(const line_range &lines,
 		const std::unordered_set<uint16_t> &needed,
 		std::unordered_map<uint16_t, vendor_info> &list) {
 
-	for (auto [n, line] : line_iterator{sv}) {
+	for (auto [n, line] : lines) {
 		if (!line.size() || !isxdigit(line[0]))
 			continue;
 
@@ -147,7 +96,7 @@ void collect_vendors(std::string_view sv,
 	}
 }
 
-void collect_devices(std::string_view sv,
+void collect_devices(const line_range &lines,
 		std::unordered_map<uint16_t, vendor_info> &vendors,
 		std::unordered_map<uint32_t, pci_device> &devs) {
 	std::string line;
@@ -155,7 +104,7 @@ void collect_devices(std::string_view sv,
 	vendor_info *vendor = nullptr;
 	uint32_t id = 0xFFFF;
 
-	for (auto [i, line] : line_iterator{sv}) {
+	for (auto [i, line] : lines) {
 		if (!line.size() || line[0] == '#')
 			continue;
 
@@ -344,10 +293,10 @@ int main(int argc, char **argv) {
 	vendors.reserve(needed_vendors.size());
 
 	mapped_file file{pci_ids_path};
-	auto sv = file.as_string_view();
+	line_range lines{file.as_string_view()};
 
-	collect_vendors(sv, needed_vendors, vendors);
-	collect_devices(sv, vendors, devices);
+	collect_vendors(lines, needed_vendors, vendors);
+	collect_devices(lines, vendors, devices);
 
 	for (auto &[_, dev] : devices) {
 		print_device(dev, verbose, static_cast<numeric>(numeric_level));
