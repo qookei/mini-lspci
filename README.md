@@ -14,7 +14,6 @@ Usage:
         -v               be verbose (show subsystem information)
         -n               show only numeric values
         -nn              show numeric values and names
-        -s <path>        set sysfs pci/devices path (default: /sys/bus/pci/devices/)
         -p <path>        set pci.ids path (default: /usr/share/hwdata/pci.ids)
         -V               show version
         -h               show help

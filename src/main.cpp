@@ -221,14 +221,12 @@ void print_help() {
 	printf("\t-v               be verbose (show subsystem information)\n");
 	printf("\t-n               show only numeric values\n");
 	printf("\t-nn              show numeric values and names\n");
-	printf("\t-s <path>        set sysfs pci/devices path (default: /sys/bus/pci/devices/)\n");
 	printf("\t-p <path>        set pci.ids path (default: /usr/share/hwdata/pci.ids)\n");
 	printf("\t-V               show version\n");
 	printf("\t-h               show help (you are here)\n");
 }
 
 int main(int argc, char **argv) {
-	const char *sysfs_pci_path = "/sys/bus/pci/devices/";
 	const char *pci_ids_path = "/usr/share/hwdata/pci.ids";
 
 	bool verbose = false;
@@ -242,9 +240,6 @@ int main(int argc, char **argv) {
 				break;
 			case 'n':
 				numeric_level = std::min(numeric_level + 1, 2);
-				break;
-			case 's':
-				sysfs_pci_path = optarg;
 				break;
 			case 'p':
 				pci_ids_path = optarg;
