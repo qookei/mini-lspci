@@ -18,6 +18,11 @@ You will need:
  - A C++20 compliant compiler
  - Meson and Ninja
 
+This project uses git submodules, and as such, for it to work properly you need to either clone with `--recursive`, or run the following command before building:
+```
+$ git submodule update --init
+```
+
 To build and install mini-lspci, do the following:
 ```
 $ meson builddir # optionally pass --prefix /.../ to set installation prefix
@@ -25,7 +30,7 @@ $ ninja -C builddir
 $ ninja -C builddir install # optionally set the DESTDIR environment variable to set the system root
 ```
 
-You can find the list of Meson's built-in options [here](https://mesonbuild.com/Builtin-options.html).
+You can find the list of Meson's built-in options [here](https://mesonbuild.com/Builtin-options.html). Check the `meson_options.txt` file for the configuration options for this project.
 
 ## License
 
