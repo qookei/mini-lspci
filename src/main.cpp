@@ -43,7 +43,7 @@ void collect_vendors(const line_range &lines,
 		uint16_t id = 0xFFFF;
 		std::from_chars(line.data(), line.data() + 4, id, 16);
 
-		if (needed.count(id)) {
+		if (needed.contains(id)) {
 			list.emplace(id, vendor_info{id, line.substr(6), n});
 		}
 	}
@@ -98,7 +98,7 @@ void collect_devices(const line_range &lines,
 
 		std::from_chars(line.data() + 1, line.data() + 5, id, 16);
 
-		if (device_infos.count(id | (vendor->id << 16)))
+		if (device_infos.contains(id | (vendor->id << 16)))
 			device_infos[id | (vendor->id << 16)].name = line.substr(7);
 	}
 }
@@ -180,7 +180,8 @@ void print_device(pci_device &dev,
 					auto sub_dev_it = device.subsystem_names.find(dev.device | (dev.vendor << 16));
 					sub_device_known = sub_dev_it != device.subsystem_names.end() && sub_dev_it->second.size();
 
-					sub_device = sub_dev_it->second;
+					if (sub_device_known)
+						sub_device = sub_dev_it->second;
 				}
 
 				if (sub_device_known) {
