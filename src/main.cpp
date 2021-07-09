@@ -1,4 +1,5 @@
-#include <iostream>
+#include <fmt/core.h>
+
 #include <vector>
 #include <string>
 #include <charconv>
@@ -120,50 +121,46 @@ void print_device(pci_device &dev,
 	bool device_known = dev_it != device_infos.end() && dev_it->second.name.size();
 
 	if (dev.has_location)
-		printf("%02x:%02x.%1x: ", dev.bus, dev.slot, dev.function);
+		fmt::print("{:02x}:{:02x}.{:1x}: ", dev.bus, dev.slot, dev.function);
 
 	if (mode == numeric::yes) {
-		printf("%04x:%04x", dev.vendor, dev.device);
+		fmt::print("{:04x}:{:04x}", dev.vendor, dev.device);
 	} else {
 		if (vendor_known) {
 			auto &vendor = ven_it->second;
 
-			printf("%.*s ",
-				static_cast<int>(vendor.name.size()),
-				vendor.name.data());
+			fmt::print("{} ", vendor.name);
 		}
 
 		if (device_known) {
 			auto &device = dev_it->second;
 
-			printf("%.*s",
-				static_cast<int>(device.name.size()),
-				device.name.data());
+			fmt::print("{}", device.name);
 		} else {
-			printf("Device");
+			fmt::print("Device");
 		}
 
 		if (mode == numeric::mixed) {
-			printf(" [%04x:%04x]", dev.vendor, dev.device);
+			fmt::print(" [{:04x}:{:04x}]", dev.vendor, dev.device);
 		} else if (vendor_known && !device_known) {
-			printf(" %04x", dev.device);
+			fmt::print(" {:04x}", dev.device);
 		} else if (!vendor_known && !device_known) {
-			printf(" %04x:%04x", dev.vendor, dev.device);
+			fmt::print(" {:04x}:{:04x}", dev.vendor, dev.device);
 		}
 	}
 
 	if (dev.has_rev && dev.rev) {
-		printf(" (rev %02x)", dev.rev);
+		fmt::print(" (rev {:02x})", dev.rev);
 	}
 
-	printf("\n");
+	fmt::print("\n");
 
 	if (verbose) {
 		if (dev.has_subsystem && dev.subsystem_vendor != 0xFFFF) {
-			printf("\tSubsystem: ");
+			fmt::print("\tSubsystem: ");
 
 			if (mode == numeric::yes) {
-				printf("%04x:%04x", dev.subsystem_vendor, dev.subsystem_device);
+				fmt::print("{:04x}:{:04x}", dev.subsystem_vendor, dev.subsystem_device);
 			} else {
 				auto sub_ven_it = vendor_infos.find(dev.subsystem_vendor);
 				bool sub_vendor_known = sub_ven_it != vendor_infos.end() && sub_ven_it->second.name.size();
@@ -174,9 +171,7 @@ void print_device(pci_device &dev,
 				if (sub_vendor_known) {
 					auto &sub_vendor = sub_ven_it->second;
 
-					printf("%.*s ",
-						static_cast<int>(sub_vendor.name.size()),
-						sub_vendor.name.data());
+					fmt::print("{} ", sub_vendor.name);
 				}
 
 				if (device_known) {
@@ -189,43 +184,40 @@ void print_device(pci_device &dev,
 				}
 
 				if (sub_device_known) {
-					printf("%.*s",
-						static_cast<int>(sub_device.size()),
-						sub_device.data());
+					fmt::print("{}", sub_device);
 				} else {
-					printf("Device");
+					fmt::print("Device");
 				}
 
 				if (mode == numeric::mixed) {
-					printf(" [%04x:%04x]", dev.subsystem_vendor, dev.subsystem_device);
+					fmt::print(" [{:04x}:{:04x}]", dev.subsystem_vendor, dev.subsystem_device);
 				} else if (sub_vendor_known && !sub_device_known) {
-					printf(" %04x", dev.subsystem_device);
+					fmt::print(" {:04x}", dev.subsystem_device);
 				} else if (!sub_vendor_known && !sub_device_known) {
-					printf(" %04x:%04x", dev.subsystem_vendor, dev.subsystem_device);
+					fmt::print(" {:04x}:{:04x}", dev.subsystem_vendor, dev.subsystem_device);
 				}
 			}
 		}
 
-		printf("\n\n");
+		fmt::print("\n\n");
 	}
-
 }
 
 void print_version() {
-	std::cout << "mini-lspci v" << version << std::endl;
+	fmt::print("mini-lspci v{}\n", version);
 }
 
 void print_help() {
 	print_version();
 
-	std::cout << "\nusage:" << std::endl;
-	std::cout << "\t-v             Be verbose" << std::endl;
-	std::cout << "\t-n             Only show numeric values" << std::endl;
-	std::cout << "\t-nn            Show numeric values and names" << std::endl;
-	std::cout << "\t-p <path>      Set path to pci.ids file (default: " << "/usr/share/hwdata/pci.ids" << ")" << std::endl;
-	std::cout << "\t-P <provoder>  Select provider to use (default: " << default_provider << ")" << std::endl;
-	std::cout << "\t-V             Show version" << std::endl;
-	std::cout << "\t-h             Show usage" << std::endl;
+	fmt::print("\nusage:\n");
+	fmt::print("\t-v             Be verbose\n");
+	fmt::print("\t-n             Only show numeric values\n");
+	fmt::print("\t-nn            Show numeric values and names\n");
+	fmt::print("\t-p <path>      Set path to pci.ids file (default: {})\n", "/usr/share/hwdata/pci.ids");
+	fmt::print("\t-P <provoder>  Select provider to use (default: {})\n", default_provider);
+	fmt::print("\t-V             Show version\n");
+	fmt::print("\t-h             Show usage\n");
 }
 
 int main(int argc, char **argv) {
@@ -264,7 +256,7 @@ int main(int argc, char **argv) {
 	auto prov = get_provider(wanted_provider);
 
 	if (!prov) {
-		std::cerr << "Invalid provider \"" << wanted_provider << "\" selected" << std::endl;
+		fmt::print(stderr, "Invalid provider '{}' selected\n", wanted_provider);
 		return 1;
 	}
 
@@ -273,7 +265,7 @@ int main(int argc, char **argv) {
 	auto devices = prov->fetch_devices_sorted(ec);
 
 	if (ec) {
-		std::cerr << "Failed to fetch devices: " << ec << std::endl;
+		fmt::print(stderr, "Failed to fetch device: {}\n", ec.message());
 		return 1;
 	}
 

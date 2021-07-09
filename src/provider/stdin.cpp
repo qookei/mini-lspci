@@ -5,6 +5,8 @@
 #include <optional>
 #include <string_view>
 
+#include <fmt/core.h>
+
 namespace {
 	std::optional<pci_device> fetch_device(std::string_view dev_str) {
 		pci_device result;
@@ -40,8 +42,7 @@ std::vector<pci_device> stdin_provider::fetch_devices(std::error_code &) {
 		if (auto dev = fetch_device(str))
 			devices.push_back(*dev);
 		else
-			std::cerr << "Invalid vendor:device pair \""
-				<< str << "\"" << std::endl;
+			fmt::print(stderr, "Invalid vendor:device pair '{}'", str);
 	}
 
 	return devices;

@@ -1,7 +1,6 @@
 #include <provider/sysfs.hpp>
 
 #include <fstream>
-#include <iostream>
 #include <filesystem>
 
 #include <optional>
@@ -9,6 +8,8 @@
 #include <charconv>
 
 #include <config.hpp>
+
+#include <fmt/core.h>
 
 namespace fs = std::filesystem;
 
@@ -47,8 +48,8 @@ namespace {
 		if (auto val = fetch_attr(device_path, attr)) {
 			return *val;
 		} else {
-			std::cerr << "Failed to fetch attribute \"" << attr
-				<< "\" for " << device_path.filename() << std::endl;
+			fmt::print(stderr, "Failed to fetch attribute '{}' for {}",
+					attr, device_path.filename());
 			exit(1);
 		}
 	}
