@@ -53,7 +53,6 @@ namespace {
 		}
 	}
 
-
 	pci_device fetch_device(const fs::path &device_path) {
 		pci_device result;
 

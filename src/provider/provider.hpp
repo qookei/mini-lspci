@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <system_error>
+#include <cassert>
 
 struct pci_device {
 	bool has_location = false;
@@ -35,6 +36,12 @@ struct provider {
 
 		std::sort(devices.begin(), devices.end(),
 				[] (const auto &a, const auto &b) {
+			if (!a.has_location || !b.has_location) {
+				assert(!a.has_location && !b.has_location);
+
+				return false;
+			}
+
 			if (a.segment != b.segment)
 				return a.segment < b.segment;
 			if (a.bus != b.bus)

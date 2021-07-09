@@ -18,6 +18,7 @@
 
 #include <provider/provider.hpp>
 #include <provider/sysfs.hpp>
+#include <provider/stdin.hpp>
 
 struct vendor_info {
 	uint32_t id;
@@ -119,7 +120,8 @@ void print_device(pci_device &dev,
 	bool vendor_known = ven_it != vendor_infos.end() && ven_it->second.name.size();
 	bool device_known = dev_it != device_infos.end() && dev_it->second.name.size();
 
-	printf("%02x:%02x.%1x: ", dev.bus, dev.slot, dev.function);
+	if (dev.has_location)
+		printf("%02x:%02x.%1x: ", dev.bus, dev.slot, dev.function);
 
 	if (mode == numeric::yes) {
 		printf("%04x:%04x", dev.vendor, dev.device);
