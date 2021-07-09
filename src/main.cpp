@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <iomanip>
 #include <charconv>
 #include <algorithm>
 #include <string_view>
@@ -16,9 +15,9 @@
 #include <util/mapped_file.hpp>
 #include <util/line_range.hpp>
 
-#include <provider/provider.hpp>
-#include <provider/sysfs.hpp>
-#include <provider/stdin.hpp>
+#include <provider/picker.hpp>
+
+#include <config.hpp>
 
 struct vendor_info {
 	uint32_t id;
@@ -160,7 +159,7 @@ void print_device(pci_device &dev,
 	printf("\n");
 
 	if (verbose) {
-		if (dev.subsystem_vendor != 0xFFFF) {
+		if (dev.has_subsystem && dev.subsystem_vendor != 0xFFFF) {
 			printf("\tSubsystem: ");
 
 			if (mode == numeric::yes) {
@@ -213,29 +212,31 @@ void print_device(pci_device &dev,
 }
 
 void print_version() {
-	printf("mini-lspci v1.1\n");
+	std::cout << "mini-lspci v" << version << std::endl;
 }
 
 void print_help() {
 	print_version();
 
-	printf("\nusage:\n");
-	printf("\t-v               be verbose (show subsystem information)\n");
-	printf("\t-n               show only numeric values\n");
-	printf("\t-nn              show numeric values and names\n");
-	printf("\t-p <path>        set pci.ids path (default: /usr/share/hwdata/pci.ids)\n");
-	printf("\t-V               show version\n");
-	printf("\t-h               show help (you are here)\n");
+	std::cout << "\nusage:" << std::endl;
+	std::cout << "\t-v             Be verbose" << std::endl;
+	std::cout << "\t-n             Only show numeric values" << std::endl;
+	std::cout << "\t-nn            Show numeric values and names" << std::endl;
+	std::cout << "\t-p <path>      Set path to pci.ids file (default: " << "/usr/share/hwdata/pci.ids" << ")" << std::endl;
+	std::cout << "\t-P <provoder>  Select provider to use (default: " << default_provider << ")" << std::endl;
+	std::cout << "\t-V             Show version" << std::endl;
+	std::cout << "\t-h             Show usage" << std::endl;
 }
 
 int main(int argc, char **argv) {
 	const char *pci_ids_path = "/usr/share/hwdata/pci.ids";
+	std::string_view wanted_provider = default_provider;
 
 	bool verbose = false;
 	int numeric_level = 0;
 
 	int i = 0;
-	while ((i = getopt(argc, argv, "vnhVs:p:")) != -1) {
+	while ((i = getopt(argc, argv, "vnhVs:p:P:")) != -1) {
 		switch (i) {
 			case 'v':
 				verbose = true;
@@ -245,6 +246,9 @@ int main(int argc, char **argv) {
 				break;
 			case 'p':
 				pci_ids_path = optarg;
+				break;
+			case 'P':
+				wanted_provider = optarg;
 				break;
 			case 'h':
 				print_help();
@@ -257,14 +261,19 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	std::unique_ptr<provider> prov = std::make_unique<sysfs_provider>();
+	auto prov = get_provider(wanted_provider);
+
+	if (!prov) {
+		std::cerr << "Invalid provider \"" << wanted_provider << "\" selected" << std::endl;
+		return 1;
+	}
 
 	std::error_code ec;
 
 	auto devices = prov->fetch_devices_sorted(ec);
 
 	if (ec) {
-		std::cerr << "Failed to enumerate sysfs directory: " << ec.message() << std::endl;
+		std::cerr << "Failed to fetch devices: " << ec << std::endl;
 		return 1;
 	}
 

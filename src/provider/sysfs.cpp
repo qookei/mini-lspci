@@ -8,11 +8,11 @@
 #include <concepts>
 #include <charconv>
 
+#include <config.hpp>
+
 namespace fs = std::filesystem;
 
 namespace {
-	constexpr const char *sysfs_pci_path = "/sys/bus/pci/devices/";
-
 	std::optional<uint32_t> fetch_attr(const fs::path &device_path,
 			const char *attr) {
 		std::ifstream file{device_path / attr};
@@ -85,7 +85,7 @@ namespace {
 std::vector<pci_device> sysfs_provider::fetch_devices(std::error_code &ec) {
 	std::vector<pci_device> devices;
 
-	for (auto &ent : fs::directory_iterator{sysfs_pci_path, ec}) {
+	for (auto &ent : fs::directory_iterator{sysfs_dev_path, ec}) {
 		auto dev = fetch_device(ent.path());
 		if (dev.segment)
 			has_nonzero_seg_ = true;

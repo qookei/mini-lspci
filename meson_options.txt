@@ -1,0 +1,20 @@
+option('sysfs-provider', 
+	type : 'feature',
+	value : 'auto',
+	description : 'Enable the sysfs provider')
+
+option('stdin-provider', 
+	type : 'feature',
+	value : 'auto',
+	description : 'Enable the stdin provider')
+
+option('default-provider',
+	type : 'combo',
+	choices : ['sysfs', 'stdin'],
+	value : 'sysfs',
+	description: 'Which provider to use by default')
+
+option('sysfs-dev-path',
+	type : 'string',
+	value : '/sys/bus/pci/devices/',
+	description : 'Path to sysfs PCI devices directory')

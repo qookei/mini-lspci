@@ -1,0 +1,9 @@
+#include <string_view>
+
+inline constexpr std::string_view version = @VERSION@;
+inline constexpr std::string_view default_provider = @DEFAULT_PROVIDER@;
+
+inline constexpr std::string_view sysfs_dev_path = @SYSFS_DEV_PATH@;
+
+#mesondefine SYSFS_PROVIDER_ENABLED
+#mesondefine STDIN_PROVIDER_ENABLED
