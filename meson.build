@@ -3,10 +3,6 @@ project('mini-lspci', 'cpp',
 	license : 'zlib',
 	default_options : ['cpp_std=c++20', 'warning_level=3'])
 
-conf_data = configuration_data()
-
-conf_data.set_quoted('VERSION', meson.project_version())
-
 sources = [
 	'src/main.cpp',
 
@@ -17,6 +13,12 @@ sources = [
 	'src/provider/picker.cpp',
 	'src/provider/picker.hpp'
 ]
+
+# Configuration
+
+conf_data = configuration_data()
+
+conf_data.set_quoted('VERSION', meson.project_version())
 
 use_sysfs = false
 use_stdin = false
@@ -58,6 +60,13 @@ configure_file(input : 'src/config.hpp.in',
 	output : 'config.hpp',
 	configuration : conf_data)
 
+# External libraries
+
+fmt_dep = subproject('fmt').get_variable('fmt_dep')
+
+# Main executable
+
 executable('lspci', sources,
-	include_directories: 'src/',
+	include_directories : 'src/',
+	dependencies : fmt_dep,
 	install : true)
