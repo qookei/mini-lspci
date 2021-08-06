@@ -20,19 +20,44 @@ private:
 	mapped_file file_;
 
 	struct device_info {
-		std::string_view name;
-		std::unordered_map<uint32_t, std::string_view> sub_devices;
+		std::string_view name_;
+		std::unordered_map<uint32_t, std::string_view> sub_devices_;
+
+		const std::string_view *lookup_sub(uint16_t vendor_id,
+				uint16_t device_id) const {
+			if (auto it = sub_devices_.find(device_id | (uint32_t{vendor_id} << 16));
+					it != sub_devices_.end()
+					&& it->second.size()) {
+				return &it->second;
+			}
+
+			return nullptr;
+		}
+
 	};
 
 	struct vendor_info {
-		std::string_view name;
-		std::unordered_map<uint16_t, device_info> devices;
+		std::string_view name_;
+		std::unordered_map<uint16_t, device_info> devices_;
+
+		const device_info *lookup_device(uint16_t id) const {
+			if (auto it = devices_.find(id); it != devices_.end()
+					&& it->second.name_.size()) {
+				return &it->second;
+			}
+
+			return nullptr;
+		}
 	};
 
 	std::unordered_map<uint16_t, vendor_info> vendors_;
 
-	static uint32_t make_key_(uint32_t vendor, uint32_t device) {
-		return (device | (vendor << 16));
+	const vendor_info *lookup_vendor(uint16_t id) const {
+		if (auto it = vendors_.find(id); it != vendors_.end() && it->second.name_.size()) {
+			return &it->second;
+		}
+
+		return nullptr;
 	}
 
 public:
@@ -56,28 +81,22 @@ public:
 		name_pair main{vendor_id, device_id};
 		name_pair sub{sub_vendor_id, sub_device_id};
 
-		if (auto it = vendors_.find(sub_vendor_id); it != vendors_.end() && it->second.name.size()) {
+		if (auto sub_vendor = lookup_vendor(sub_vendor_id)) {
 			sub.vendor_known = true;
-			sub.vendor_name = it->second.name;
+			sub.vendor_name = sub_vendor->name_;
 		}
 
-		if (auto it = vendors_.find(vendor_id); it != vendors_.end() && it->second.name.size()) {
-			auto &[_, vendor] = *it;
-
+		if (auto vendor = lookup_vendor(vendor_id)) {
 			main.vendor_known = true;
-			main.vendor_name = vendor.name;
+			main.vendor_name = vendor->name_;
 
-			if (auto it = vendor.devices.find(device_id); it != vendor.devices.end() && it->second.name.size()) {
-				auto &[_, device] = *it;
-
+			if (auto device = vendor->lookup_device(device_id)) {
 				main.device_known = true;
-				main.device_name = device.name;
+				main.device_name = device->name_;
 
-				if (auto it = device.sub_devices.find(make_key_(sub_vendor_id, sub_device_id)); it != device.sub_devices.end() && it->second.size()) {
-					auto &[_, sub_device] = *it;
-
+				if (auto sub_dev = device->lookup_sub(sub_vendor_id, sub_device_id)) {
 					sub.device_known = true;
-					sub.device_name = sub_device;
+					sub.device_name = *sub_dev;
 				}
 			}
 		}
