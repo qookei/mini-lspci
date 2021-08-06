@@ -5,6 +5,7 @@ project('mini-lspci', 'cpp',
 
 sources = [
 	'src/main.cpp',
+	'src/pciids.cpp',
 
 	'src/util/mapped_file.hpp',
 	'src/util/line_range.hpp',
