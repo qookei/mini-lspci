@@ -35,6 +35,7 @@ if get_option('stdin-provider').auto() or get_option('stdin-provider').enabled()
 endif
 
 conf_data.set_quoted('SYSFS_DEV_PATH', get_option('sysfs-dev-path'))
+conf_data.set_quoted('PCIIDS_PATH', get_option('pciids-path'))
 
 if use_sysfs
 	sources += ['src/provider/sysfs.cpp', 'src/provider/sysfs.hpp']

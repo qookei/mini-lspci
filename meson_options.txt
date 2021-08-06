@@ -1,3 +1,8 @@
+option('pciids-path',
+	type : 'string',
+	value : '/usr/share/hwdata/pci.ids',
+	description : 'Default path to pci.ids file')
+
 option('sysfs-provider', 
 	type : 'feature',
 	value : 'auto',

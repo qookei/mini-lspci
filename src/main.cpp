@@ -215,14 +215,14 @@ void print_help() {
 	fmt::print("\t-v             Be verbose\n");
 	fmt::print("\t-n             Only show numeric values\n");
 	fmt::print("\t-nn            Show numeric values and names\n");
-	fmt::print("\t-p <path>      Set path to pci.ids file (default: {})\n", "/usr/share/hwdata/pci.ids");
+	fmt::print("\t-p <path>      Set path to pci.ids file (default: {})\n", pciids_path);
 	fmt::print("\t-P <provoder>  Select provider to use (default: {})\n", default_provider);
 	fmt::print("\t-V             Show version\n");
 	fmt::print("\t-h             Show usage\n");
 }
 
 int main(int argc, char **argv) {
-	const char *pci_ids_path = "/usr/share/hwdata/pci.ids";
+	const char *wanted_pciids_path = pciids_path;
 	std::string_view wanted_provider = default_provider;
 
 	bool verbose = false;
@@ -238,7 +238,7 @@ int main(int argc, char **argv) {
 				numeric_level = std::min(numeric_level + 1, 2);
 				break;
 			case 'p':
-				pci_ids_path = optarg;
+				wanted_pciids_path = optarg;
 				break;
 			case 'P':
 				wanted_provider = optarg;
