@@ -1,4 +1,5 @@
 #include <pciids.hpp>
+#include <util/line_range.hpp>
 
 #include <charconv>
 
@@ -18,7 +19,7 @@ void pciids_parser::process() {
 	vendor_info *vendor = nullptr;
 	device_info *device = nullptr;
 
-	for (auto [i, line] : lines_) {
+	for (auto line : line_range{file_.as_string_view()}) {
 		if (!line.size() || line[0] == '#')
 			continue;
 

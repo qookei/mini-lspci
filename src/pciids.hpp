@@ -1,7 +1,6 @@
 #pragma once
 
 #include <util/mapped_file.hpp>
-#include <util/line_range.hpp>
 
 #include <unordered_map>
 #include <unordered_set>
@@ -19,7 +18,6 @@ struct pciids_parser {
 
 private:
 	mapped_file file_;
-	line_range lines_{file_.as_string_view()};
 
 	struct device_info {
 		std::string_view name;
