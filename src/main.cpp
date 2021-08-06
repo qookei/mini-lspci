@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
 		parser.internalize_device(dev.vendor, dev.device, dev.subsystem_vendor, dev.subsystem_device);
 	}
 
-	parser.finalize();
+	parser.process();
 
 	for (auto &dev : devices) {
 		print_device(dev, parser, verbose, static_cast<numeric>(numeric_level));
