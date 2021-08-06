@@ -49,7 +49,7 @@ namespace {
 			return *val;
 		} else {
 			fmt::print(stderr, "Failed to fetch attribute '{}' for {}",
-					attr, device_path.filename());
+					attr, device_path.filename().c_str());
 			exit(1);
 		}
 	}

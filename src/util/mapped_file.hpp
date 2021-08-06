@@ -1,9 +1,14 @@
 #pragma once
 
+#include <fmt/core.h>
+
 #include <string_view>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 
 struct mapped_file {
@@ -18,19 +23,19 @@ struct mapped_file {
 	mapped_file(const char *path) {
 		int fd = open(path, O_RDONLY);
 		if (fd < 0) {
-			perror("open");
+			fmt::print(stderr, "Failed to open \"{}\": {}\n", path, strerror(errno));
 			return;
 		}
 
 		struct stat st;
 		if (fstat(fd, &st)) {
-			perror("stat");
+			fmt::print(stderr, "Failed to stat \"{}\": {}\n", path, strerror(errno));
 			return;
 		}
 
 		auto ptr = mmap(nullptr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 		if (ptr == MAP_FAILED) {
-			perror("mmap");
+			fmt::print(stderr, "Failed to mmap \"{}\": {}\n", path, strerror(errno));
 			return;
 		}
 
