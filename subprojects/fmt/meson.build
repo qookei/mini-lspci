@@ -6,7 +6,7 @@ sources = ['fmt/src/format.cc', 'fmt/src/os.cc']
 
 incs = include_directories('fmt/include')
 
-libfmt = library('fmt', sources,
+libfmt = static_library('fmt', sources,
 	include_directories : incs,
 	cpp_args : '-DFMT_EXCEPTIONS=0')
 
