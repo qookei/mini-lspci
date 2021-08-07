@@ -1,5 +1,5 @@
 project('mini-lspci', 'cpp',
-	version : '1.2',
+	version : '1.2.1',
 	license : 'zlib',
 	default_options : ['cpp_std=c++20', 'warning_level=3'])
 
