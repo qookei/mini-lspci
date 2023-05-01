@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <string_view>
 #include <cassert>
+#include <cstdint>
 
 struct pciids_parser {
 	pciids_parser(const char *path)

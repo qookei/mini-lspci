@@ -3,6 +3,8 @@
 #include <vector>
 #include <system_error>
 #include <cassert>
+#include <cstdint>
+#include <algorithm>
 
 struct pci_device {
 	bool has_location = false;
